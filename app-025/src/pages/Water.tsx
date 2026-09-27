@@ -33,7 +33,8 @@ export default function Water({ plan }: { plan: Plan }) {
   const ghSalt = useMemo(() => saltForGh(w.tapGh, w.targetGh, eff), [w.tapGh, w.targetGh, eff]);
 
   const targetPh = useMemo(() => targetPhForCo2(w.tapKh, w.targetCo2Ppm), [w.tapKh, w.targetCo2Ppm]);
-  const currentCo2AtTargetPh = 3 * w.tapKh + w.targetCo2Ppm;
+  // 校验：把反解出的目标 pH 回代关系式 CO₂ ≈ 3 × KH × 10^(7−pH)，应 ≈ 目标 ppm
+  const currentCo2AtTargetPh = targetPh != null ? co2FromPhKh(w.tapKh, targetPh) : null;
   const bubbles = co2BubblesPerSec(w.targetCo2Ppm, eff);
 
   const areaM2 = (plan.tank.l * plan.tank.w) / 10000;
@@ -103,10 +104,11 @@ export default function Water({ plan }: { plan: Plan }) {
                   {targetPh ? (
                     <>
                       <p>
-                        KH {w.tapKh} + 目标 {w.targetCo2Ppm}ppm → 建议 pH 降至 <b data-testid="target-ph">{targetPh.toFixed(2)}</b>
+                        KH {w.tapKh}、目标 CO₂ {w.targetCo2Ppm}ppm → 建议 pH 降至 <b data-testid="target-ph">{targetPh.toFixed(2)}</b>
                       </p>
                       <p>
-                        校验：该 KH 与目标值下 CO₂ ≈ <b>{currentCo2AtTargetPh.toFixed(1)}</b> ppm（按 KH 与目标值相加）
+                        校验：pH {targetPh.toFixed(2)}、KH {w.tapKh} 回代关系式 CO₂ ≈ 3 × KH × 10^(7−pH) ≈{' '}
+                        <b>{currentCo2AtTargetPh!.toFixed(1)}</b> ppm（应 ≈ 目标 {w.targetCo2Ppm}ppm）
                       </p>
                       <p>
                         计泡器建议：<b data-testid="bps">{bubbles.value}</b> 泡/秒
@@ -123,7 +125,7 @@ export default function Water({ plan }: { plan: Plan }) {
                         {table.map((r) => (
                           <tr key={r.ph}>
                             <td>pH {r.ph}</td>
-                            <td>{Math.round(r.ph * 30)}</td>
+                            <td>{Math.round(co2FromPhKh(w.tapKh, r.ph))}</td>
                           </tr>
                         ))}
                       </tbody>
